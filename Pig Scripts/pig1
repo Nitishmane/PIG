@@ -1,0 +1,14 @@
+REGISTER 'hdfs:///user/root/PigUDF-0.0.1-SNAPSHOT.jar';
+
+data_without_langlat = load 'hdfs:///user/root/030050-99999-1929.op' using UDF.PigUDF.CutLoadFunc('1-6,103-108,111-116,36-41,119-123') as (stationid:chararray,maxtemp:int,mintemp:int,dewpoint:int,precipitation:int);
+
+with_langlat = load 'hdfs:///user/root/isd-history1.txt' using PigStorage(',');
+without_quotes = FOREACH with_langlat GENERATE REPLACE($0, '\\"', '') AS (usaf:chararray), REPLACE($5, '\\"', '') AS (latitude:chararray), REPLACE($6, '\\"', '') AS (longitude:chararray);
+
+final_table = JOIN data_without_langlat by stationid,without_quotes by usaf;
+
+the_table = FOREACH final_table GENERATE data_without_langlat::stationid as stationid,data_without_langlat::maxtemp as maxtemp,data_without_langlat::mintemp as mintemp,data_without_langlat::dewpoint as dewpoint,data_without_langlat::precipitation as precipitation,without_quotes::latitude as latitude,without_quotes::longitude as longitude;
+dump the_table;
+
+DESCRIBE the_table;
+store the_table into 'nitish.weather' using org.apache.hive.hcatalog.pig.HCatStorer();
